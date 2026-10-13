@@ -1,0 +1,30 @@
+# Databricks Asset Bundle — Elasticsearch -> Databricks migration POC.
+#   databricks bundle validate -t dev
+#   databricks bundle deploy   -t dev
+#   databricks bundle run bank_dept_feeds -t dev
+bundle:
+  name: elasticsearch2databricks-poc
+
+variables:
+  catalog:
+    default: bank
+
+workspace:
+  host: ${DATABRICKS_HOST}
+  root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: ${DATABRICKS_HOST}
+  prod:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST_PROD}
+    run_as:
+      service_principal_name: ${DATABRICKS_SP_NAME}

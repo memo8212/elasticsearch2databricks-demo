@@ -1,0 +1,32 @@
+{
+  "searches": [
+    {
+      "name": "high_value_cards",
+      "index": "bank-dept-*",
+      "query": {
+        "bool": {
+          "must": [
+            { "term": { "dept": "cards" } },
+            { "range": { "amount": { "gte": 1000 } } }
+          ],
+          "must_not": [
+            { "term": { "status": "reversal" } }
+          ]
+        }
+      }
+    },
+    {
+      "name": "suspicious_narratives",
+      "index": "bank-statements-*",
+      "query": {
+        "bool": {
+          "should": [
+            { "match": { "body": "overdraft" } },
+            { "match": { "body": "unauthorized" } }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+    }
+  ]
+}

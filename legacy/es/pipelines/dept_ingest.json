@@ -1,0 +1,20 @@
+{
+  "description": "Normalize bank department transaction documents on ingest",
+  "processors": [
+    { "rename": { "field": "DEPT_CODE", "target_field": "dept" } },
+    { "lowercase": { "field": "dept" } },
+    { "rename": { "field": "TXN_ID", "target_field": "doc_id" } },
+    { "rename": { "field": "TXN_DATE", "target_field": "txn_date" } },
+    { "date": { "field": "txn_date", "formats": ["yyyy-MM-dd"], "target_field": "txn_date" } },
+    { "convert": { "field": "AMOUNT", "type": "double", "target_field": "amount" } },
+    { "gsub": { "field": "STATUS", "pattern": "\\s+", "replacement": "" } },
+    { "lowercase": { "field": "CCY", "target_field": "ccy" } },
+    { "set": { "field": "base_ccy", "value": "CAD" } },
+    { "script": { "source": "ctx.base_amount = ctx.amount * params.rate", "params": { "rate": 1.0 } } },
+    { "grok": { "field": "NARRATIVE", "patterns": ["%{WORD:txn_kind}"] } },
+    { "set": { "field": "tags", "value": ["bank", "dept-feed"] } }
+  ],
+  "on_failure": [
+    { "set": { "field": "error.message", "value": "{{{ _ingest.on_failure_message }}}" } }
+  ]
+}

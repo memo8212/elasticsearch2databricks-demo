@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local Spark
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+
+# Generated outputs + sample data
+artifacts/output/
+artifacts/*.zip
+data/landing/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,26 @@
+{
+  "index_patterns": ["bank-dept-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 3,
+      "number_of_replicas": 1,
+      "refresh_interval": "5s"
+    },
+    "mappings": {
+      "properties": {
+        "doc_id":      { "type": "keyword" },
+        "dept":        { "type": "keyword" },
+        "account_no":  { "type": "keyword" },
+        "customer_id": { "type": "keyword" },
+        "product":     { "type": "keyword" },
+        "amount":      { "type": "double" },
+        "base_amount": { "type": "double" },
+        "ccy":         { "type": "keyword" },
+        "txn_date":    { "type": "date", "format": "yyyy-MM-dd" },
+        "status":      { "type": "keyword" },
+        "narrative":   { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+        "tags":        { "type": "keyword" }
+      }
+    }
+  }
+}

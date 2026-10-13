@@ -1,0 +1,11 @@
+{
+  "policy": {
+    "phases": {
+      "hot":    { "actions": { "rollover": { "max_size": "50gb", "max_age": "7d" } } },
+      "warm":   { "min_age": "7d",  "actions": { "forcemerge": { "max_num_segments": 1 } } },
+      "cold":   { "min_age": "30d", "actions": { "freeze": {} } },
+      "delete": { "min_age": "2555d", "actions": { "delete": {} } }
+    }
+  },
+  "_meta": { "note": "7-year retention (2555d) for regulatory records" }
+}

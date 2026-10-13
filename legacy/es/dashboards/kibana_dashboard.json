@@ -1,0 +1,28 @@
+{
+  "title": "Bank Department Feeds",
+  "panels": [
+    {
+      "title": "Total base amount by department",
+      "index": "bank-dept-*",
+      "aggs": {
+        "by_dept": {
+          "terms": { "field": "dept", "size": 10 },
+          "aggs": {
+            "total_base": { "sum": { "field": "base_amount" } },
+            "txn_count": { "value_count": { "field": "doc_id" } }
+          }
+        }
+      }
+    },
+    {
+      "title": "Daily transaction count",
+      "index": "bank-dept-*",
+      "aggs": {
+        "by_day": {
+          "date_histogram": { "field": "txn_date", "calendar_interval": "day" },
+          "aggs": { "avg_amount": { "avg": { "field": "amount" } } }
+        }
+      }
+    }
+  ]
+}

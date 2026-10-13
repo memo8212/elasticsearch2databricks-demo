@@ -1,0 +1,24 @@
+{
+  "index_patterns": ["bank-statements-*"],
+  "template": {
+    "settings": { "number_of_shards": 2, "number_of_replicas": 1 },
+    "mappings": {
+      "properties": {
+        "statement_id": { "type": "keyword" },
+        "account_no":   { "type": "keyword" },
+        "dept":         { "type": "keyword" },
+        "period":       { "type": "keyword" },
+        "body":         { "type": "text" },
+        "attachment": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "keyword" },
+            "size": { "type": "long" },
+            "pages": { "type": "integer" }
+          }
+        },
+        "generated_at": { "type": "date" }
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Bank Department Feeds (Databricks)",
+  "datasets": [
+    {
+      "name": "dept_txn",
+      "table": "bank.gold.dept_txn"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Overview",
+      "widgets": [
+        {
+          "title": "Total base amount by department",
+          "type": "chart"
+        },
+        {
+          "title": "Daily transaction count",
+          "type": "chart"
+        }
+      ]
+    }
+  ]
+}
