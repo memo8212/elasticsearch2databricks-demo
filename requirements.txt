@@ -1,4 +1,5 @@
-pyspark>=3.5
-pandas>=2.0
-pyarrow>=14
-pytest>=7.4
+# Pinned to the versions this repo was tested with (Spark 4.2 / Java 17).
+pyspark==4.2.0
+pandas==2.3.3
+pyarrow==23.0.1
+pytest==9.1.1

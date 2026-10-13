@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+exclude = [".venv", ".git", "artifacts", "**/artifacts", "notebooks", "**/notebooks", "graphify-out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E402", "E501", "F841", "E702", "E741", "F541"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
