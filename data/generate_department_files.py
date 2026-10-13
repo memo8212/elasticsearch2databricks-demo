@@ -34,6 +34,8 @@ CCYS = ["CAD", "USD", "EUR", "GBP"]
 STATUS = ["POSTED", "POSTED", "POSTED", "REVERSAL", "PENDING"]
 NARR = ["CARD PURCHASE STORE 4412", "ONLINE TRANSFER", "ATM WITHDRAWAL",
         "PAYROLL DEPOSIT", "BILL PAYMENT HYDRO", "INTERAC E-TRANSFER"]
+NAMES = ["JOHN SMITH", "MARIA GARCIA", "LI WEI", "AISHA KHAN", "DAVID LEE",
+         "SOFIA ROSSI", "OMAR HADDAD", "EMMA JOHNSON", "YUKI TANAKA", "NOAH MARTIN"]
 
 
 def gen_txn(dept: str, fmt: str, products: list, n: int, seed: int) -> Path:
@@ -46,6 +48,7 @@ def gen_txn(dept: str, fmt: str, products: list, n: int, seed: int) -> Path:
         rows.append({
             "TXN_ID": f"{dept[:3].upper()}{i:08d}",
             "ACCOUNT_NO": f"ACC{rng.randint(1, 800):08d}",
+            "HOLDER_NAME": rng.choice(NAMES),
             "DEPT_CODE": dept.upper(),
             "PRODUCT": rng.choice(products),
             "AMOUNT": round(rng.uniform(5, 20000), 2),

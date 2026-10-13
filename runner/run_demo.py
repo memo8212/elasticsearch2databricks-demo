@@ -64,6 +64,10 @@ def apply_pipeline_pandas(df: pd.DataFrame) -> pd.DataFrame:
     df["base_amount"] = df["amount"] * BASE_RATE
     df["txn_kind"] = df["NARRATIVE"].str.split().str[0]
     df["tags"] = "bank,dept-feed"
+    # --- PII masking (Silver): mask the name, tokenize the account number ---
+    df["holder_name"] = df["HOLDER_NAME"].str[:1] + "***"
+    df["account_token"] = df["ACCOUNT_NO"].map(
+        lambda a: hashlib.sha256(str(a).encode()).hexdigest()[:16])
     return df
 
 
@@ -125,7 +129,10 @@ def spark_side(files: list[dict]):
           .withColumn("base_ccy", F.lit("CAD"))
           .withColumn("base_amount", F.col("amount") * F.lit(BASE_RATE))
           .withColumn("txn_kind", F.split(F.col("NARRATIVE"), " ")[0])
-          .withColumn("tags", F.lit("bank,dept-feed")))
+          .withColumn("tags", F.lit("bank,dept-feed"))
+          # --- PII masking (Silver) ---
+          .withColumn("holder_name", F.concat(F.substring(F.col("HOLDER_NAME"), 1, 1), F.lit("***")))
+          .withColumn("account_token", F.substring(F.sha2(F.col("ACCOUNT_NO"), 256), 1, 16)))
     df.write.mode("overwrite").option("overwriteSchema", "true").parquet(str(SILVER / "dept_txn"))
 
     # ---- Gold: the Kibana aggregation as SQL ----
@@ -176,6 +183,37 @@ def build_lineage(files: list[dict]) -> dict:
     return lineage
 
 
+def build_search_index(gold: pd.DataFrame) -> list:
+    """Build a search-serving index from Gold and run a sample search query."""
+    docs = [{"_id": f"dept::{r.dept}", "dept": r.dept,
+             "total_base": float(r.total_base), "txn_count": int(r.txn_count)}
+            for r in gold.itertuples()]
+    (OUT / "search_index.json").write_text(json.dumps(docs, indent=2), encoding="utf-8")
+    # example "search UI" query: departments above a revenue threshold
+    threshold = 20_000_000
+    return [d for d in docs if d["total_base"] >= threshold]
+
+
+def build_sharing_manifest(gold: pd.DataFrame, transfer: dict) -> dict:
+    """Emit a Delta Sharing manifest + recipient audit (replaces a copy)."""
+    manifest = {
+        "share": "bank_dept_share",
+        "table": "bank.gold.dept_summary",
+        "recipient": "partner_regulator",
+        "version": 1,
+        "rows": len(gold),
+        "md5": transfer["md5"],
+        "as_of": pd.Timestamp.utcnow().isoformat(timespec="seconds"),
+        "reconciled": transfer["reconciled"],
+    }
+    (OUT / "sharing_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    pd.DataFrame([{"share": manifest["share"], "table": manifest["table"],
+                   "recipient": manifest["recipient"], "rows": manifest["rows"],
+                   "status": "SHARED" if manifest["reconciled"] else "MISMATCH"}]) \
+      .to_csv(OUT / "share_audit.csv", index=False)
+    return manifest
+
+
 def transfer_and_reconcile(gold: pd.DataFrame) -> dict:
     """Export Gold and verify the transfer (checksum + row count)."""
     target = TRANSFER / "dept_summary.parquet"
@@ -206,17 +244,20 @@ def main() -> None:
     gold_dbx, hv_count = spark_side(dept_files)
     susp_count = statements_search(stmt_files)
 
-    # ---- registry + lineage + transfer ----
+    # ---- registry + lineage + transfer + sharing ----
     registry = build_registry(files)
     lineage = build_lineage(files)
     transfer = transfer_and_reconcile(gold_dbx)
+    search_results = build_search_index(gold_dbx)
+    sharing = build_sharing_manifest(gold_dbx, transfer)
+    pii_sample = docs[["doc_id", "holder_name", "account_token"]].head(3).to_string(index=False)
 
     # ---- validation ----
     merged = gold_legacy.merge(gold_dbx, on="dept", suffixes=("_ES", "_DBX"), how="outer", indicator=True)
     row_match = bool((merged["_merge"] == "both").all())
     amt_ok = bool(((merged["total_base_ES"] - merged["total_base_DBX"]).abs() <= 0.01).all()) if row_match else False
     cnt_ok = bool((merged["txn_count_ES"] == merged["txn_count_DBX"]).all()) if row_match else False
-    passed = row_match and amt_ok and cnt_ok and transfer["reconciled"]
+    passed = row_match and amt_ok and cnt_ok and transfer["reconciled"] and sharing["reconciled"]
 
     report = f"""# Validation Report — Elasticsearch -> Databricks (bank department feeds)
 
@@ -233,6 +274,13 @@ def main() -> None:
 | Saved search high_value_cards | {hv_count} |
 | Saved search suspicious_narratives | {susp_count} |
 | Transfer reconciled | {transfer['reconciled']} (rows={transfer['rows']}, md5={transfer['md5'][:10]}...) |
+| Delta Share reconciled | {sharing['reconciled']} (share={sharing['share']} -> {sharing['recipient']}) |
+| Search index docs / query hits | {len(gold_dbx)} / {len(search_results)} |
+
+## PII masking (Silver) — sample
+```
+{pii_sample}
+```
 
 ## File registry (sample)
 ```

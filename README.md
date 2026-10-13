@@ -62,13 +62,14 @@ legacy/es/                 Elasticsearch artifacts
   settings/ilm_policy.json                     (retention)
   loader/bulk_load.sh                          (_bulk loader)
 converter/es2dbx_converter.py                  ES artifacts -> Databricks artifacts
-runner/run_demo.py                             all files -> one place + registry + lineage + transfer
-data/generate_department_files.py              synthetic dept files (NDJSON + CSV)
-notebooks/                                     01 ingest, 02 silver, 03 gold+export (Asset Bundle)
-resources/                                     bundle job + uc_setup.sql
+runner/run_demo.py                             all files -> one place + registry + lineage + transfer + sharing + PII + search index
+data/generate_department_files.py              synthetic dept files (NDJSON + CSV, with PII)
+notebooks/                                     01 ingest, 02 silver, 03 gold+export, 04 PII masking, 05 push to ES
+resources/                                     bundle job, uc_setup.sql, pii_masking.sql, sharing.sql
 databricks.yml                                 Databricks Asset Bundle root
 docs/es2dbx-components.md                      component deep dive
-tests/                                         pytest
+docs/search-serving.md                         keeping ES as a derived search index
+tests/                                         pytest (converter + runner)
 artifacts/                                     generated outputs
 ```
 
@@ -93,7 +94,41 @@ pytest -q tests/                             # converter tests
 - `output/file_registry.csv` — file-level lineage (path, size, md5, status)
 - `output/lineage.json` / `lineage.md` — file → bronze → silver → gold → transfer
 - `output/transfer_out/` + `transfer_audit.csv` — export + checksum reconciliation
+- `output/search_index.json` — search-serving index built from Gold
+- `output/sharing_manifest.json` + `share_audit.csv` — Delta Sharing record
 - `output/validation_report.md` — ES store vs lakehouse parity
+
+## Governance & serving
+
+**PII masking (Silver).** The holder name is masked and the account number is
+tokenized; Unity Catalog column masks enforce it for everyone without the
+`pii_readers` group. See `resources/pii_masking.sql` and `notebooks/04_pii_masking.py`.
+
+```sql
+CREATE FUNCTION bank.silver.mask_name(name STRING) RETURNS STRING
+RETURN CASE WHEN is_account_group_member('pii_readers') THEN name
+            ELSE concat(substring(name,1,1),'***') END;
+ALTER TABLE bank.silver.dept_txn ALTER COLUMN holder_name SET MASK bank.silver.mask_name;
+```
+
+**Delta Sharing.** Expose Gold to a partner/regulator **without copying** data —
+replaces "export a file and email it" for governed sharing (`resources/sharing.sql`).
+
+```sql
+CREATE SHARE bank_dept_share;
+ALTER SHARE bank_dept_share ADD TABLE bank.gold.dept_summary;
+GRANT SELECT ON SHARE bank_dept_share TO RECIPIENT partner_regulator;
+```
+
+**Keep Elasticsearch (search-serving).** Databricks is the system of record; ES is
+a derived, rebuildable index fed from Gold. See `docs/search-serving.md` and
+`notebooks/05_push_to_elasticsearch.py`.
+
+```python
+(gold.write.format("org.elasticsearch.spark.sql")
+     .option("es.nodes", "es-bank").option("es.resource", "bank-gold-dept-summary/_doc")
+     .option("es.mapping.id", "dept").mode("overwrite").save())
+```
 
 ## Deploy to Databricks (Asset Bundle)
 

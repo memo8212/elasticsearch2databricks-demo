@@ -28,6 +28,7 @@
 | doc_id | keyword | StringType |
 | dept | keyword | StringType |
 | account_no | keyword | StringType |
+| holder_name | keyword | StringType |
 | customer_id | keyword | StringType |
 | product | keyword | StringType |
 | amount | double | DoubleType |

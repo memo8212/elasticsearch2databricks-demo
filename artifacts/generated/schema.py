@@ -7,6 +7,7 @@ DEPT_TXN_SCHEMA = StructType([
     StructField("doc_id", StringType(), True),
     StructField("dept", StringType(), True),
     StructField("account_no", StringType(), True),
+    StructField("holder_name", StringType(), True),
     StructField("customer_id", StringType(), True),
     StructField("product", StringType(), True),
     StructField("amount", DoubleType(), True),
